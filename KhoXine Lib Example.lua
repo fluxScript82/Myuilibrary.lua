@@ -1,62 +1,40 @@
-local KhoXineHub = loadstring(game:HttpGet("https://raw.githubusercontent.com/fluxScript82/Myuilibrary.lua/refs/heads/main/KhoXine%20Lib%20Source.lua"))()
+local KhoXineHub = loadstring(game:HttpGet("YOUR_RAW_SCRIPT_URL"))()
 
--- Create a window (the section title will appear next to "KhoXine Hub")
-local Window = KhoXineHub:CreateWindow("Main Menu")
+-- Create a window
+local Window = KhoXineHub:CreateWindow("KhoXine Hub", {
+    Size = UDim2.new(0, 500, 0, 400)
+})
 
--- Create a section for player modifications
-local PlayerSection = Window:AddSection("Player")
+-- Create tabs
+local MainTab = Window:AddTab("Main", "rbxassetid://7733960981")
+local SettingsTab = Window:AddTab("Settings", "rbxassetid://7734053495")
 
--- Add a speed slider
-local SpeedSlider = PlayerSection:AddSlider("Walk Speed", 16, 100, 16, function(value)
-    game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = value
+-- Add sections to tabs
+local FeaturesSection = MainTab:AddSection("Features")
+local ConfigSection = SettingsTab:AddSection("Configuration")
+
+-- Add components to sections
+FeaturesSection:AddButton("Activate Speed", function()
+    -- Your code here
+    Window:AddNotification("Success", "Speed activated!", {type = "success"})
 end)
 
--- Add a jump power slider
-local JumpSlider = PlayerSection:AddSlider("Jump Power", 50, 200, 50, function(value)
-    game.Players.LocalPlayer.Character.Humanoid.JumpPower = value
+local SpeedToggle = FeaturesSection:AddToggle("Auto Farm", false, function(value)
+    -- Your code here
+    print("Auto Farm:", value)
 end)
 
--- Create a section for game features
-local GameSection = Window:AddSection("Game Features")
-
--- Add a toggle for ESP
-local ESPToggle = GameSection:AddToggle("Enable ESP", false, function(value)
-    -- Your ESP code here
-    print("ESP Enabled: " .. tostring(value))
+local SpeedSlider = FeaturesSection:AddSlider("Speed Multiplier", 1, 10, 2, function(value)
+    -- Your code here
+    print("Speed set to:", value)
 end)
 
--- Add a button to teleport to spawn
-GameSection:AddButton("Teleport to Spawn", function()
-    -- Your teleport code here
-    print("Teleporting to spawn...")
+ConfigSection:AddDropdown("Theme", {"Default", "Dark", "Light", "Custom"}, "Default", function(option)
+    -- Your code here
+    print("Theme changed to:", option)
 end)
 
--- Create a section for settings
-local SettingsSection = Window:AddSection("Settings")
-
--- Add a dropdown for themes
-local ThemeDropdown = SettingsSection:AddDropdown("Theme", {"Default", "Dark", "Light", "Ocean"}, "Default", function(value)
-    if value == "Dark" then
-        KhoXineHub:SetTheme({
-            Primary = Color3.fromRGB(25, 25, 25),
-            Secondary = Color3.fromRGB(30, 30, 30),
-            Accent = Color3.fromRGB(255, 75, 75)
-        })
-    elseif value == "Light" then
-        KhoXineHub:SetTheme({
-            Primary = Color3.fromRGB(230, 230, 230),
-            Secondary = Color3.fromRGB(240, 240, 240),
-            Accent = Color3.fromRGB(0, 120, 215),
-            Text = Color3.fromRGB(50, 50, 50)
-        })
-    elseif value == "Ocean" then
-        KhoXineHub:SetTheme({
-            Primary = Color3.fromRGB(35, 47, 62),
-            Secondary = Color3.fromRGB(28, 40, 55),
-            Accent = Color3.fromRGB(0, 170, 255)
-        })
-    end
+ConfigSection:AddColorPicker("Accent Color", Color3.fromRGB(113, 93, 255), function(color)
+    -- Your code here
+    print("Color changed to:", color)
 end)
-
--- Show a notification when the script loads
-Window:AddNotification("KhoXine Hub", "Script loaded successfully!", 5)
