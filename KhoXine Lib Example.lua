@@ -1,4 +1,4 @@
-local KhoXineHub = loadstring(game:HttpGet("YOUR_RAW_SCRIPT_URL"))()
+local KhoXineHub = loadstring(game:HttpGet("https://raw.githubusercontent.com/fluxScript82/Myuilibrary.lua/refs/heads/main/KhoXine%20Lib%20Source.lua"))()
 
 -- Create a window (the section title will appear next to "KhoXine Hub")
 local Window = KhoXineHub:CreateWindow("Main Menu")
