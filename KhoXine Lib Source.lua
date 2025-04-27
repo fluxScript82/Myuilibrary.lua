@@ -1,4 +1,4 @@
--- Mafuyo UI Library
+-- Mafuyo UI Library (Improved Version)
 -- A draggable UI library for Roblox games
 
 local MafuyoLib = {}
@@ -20,13 +20,26 @@ local config = {
 -- Create the main UI
 function MafuyoLib.new(parent)
     local self = setmetatable({}, MafuyoLib)
-    parent = parent or game.Players.LocalPlayer:WaitForChild("PlayerGui")
     
-    -- Create ScreenGui
+    -- Handle parent
+    if parent == nil then
+        parent = game:GetService("CoreGui"):FindFirstChild("RobloxGui") or game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+    end
+    
+    -- Create ScreenGui with protection
     self.gui = Instance.new("ScreenGui")
     self.gui.Name = "MafuyoUI"
     self.gui.ResetOnSpawn = false
     self.gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    
+    -- Apply protection if possible
+    pcall(function()
+        self.gui.IgnoreGuiInset = true
+        if syn and syn.protect_gui then
+            syn.protect_gui(self.gui)
+        end
+    end)
+    
     self.gui.Parent = parent
     
     -- Create main frame
@@ -38,6 +51,21 @@ function MafuyoLib.new(parent)
     self.main.BorderSizePixel = 0
     self.main.Active = true
     self.main.Parent = self.gui
+    
+    -- Add shadow
+    local shadow = Instance.new("ImageLabel")
+    shadow.Name = "Shadow"
+    shadow.AnchorPoint = Vector2.new(0.5, 0.5)
+    shadow.BackgroundTransparency = 1
+    shadow.Position = UDim2.new(0.5, 0, 0.5, 0)
+    shadow.Size = UDim2.new(1, 30, 1, 30)
+    shadow.ZIndex = 0
+    shadow.Image = "rbxassetid://6014261993"
+    shadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
+    shadow.ImageTransparency = 0.5
+    shadow.ScaleType = Enum.ScaleType.Slice
+    shadow.SliceCenter = Rect.new(49, 49, 450, 450)
+    shadow.Parent = self.main
     
     -- Add corner radius
     local corner = Instance.new("UICorner")
@@ -56,6 +84,16 @@ function MafuyoLib.new(parent)
     local titleCorner = Instance.new("UICorner")
     titleCorner.CornerRadius = config.cornerRadius
     titleCorner.Parent = self.titleBar
+    
+    -- Fix the bottom corners of title bar
+    local bottomFrame = Instance.new("Frame")
+    bottomFrame.Name = "BottomFrame"
+    bottomFrame.Size = UDim2.new(1, 0, 0, 10)
+    bottomFrame.Position = UDim2.new(0, 0, 1, -10)
+    bottomFrame.BackgroundColor3 = config.accentColor
+    bottomFrame.BorderSizePixel = 0
+    bottomFrame.ZIndex = self.titleBar.ZIndex
+    bottomFrame.Parent = self.titleBar
     
     -- Create title text
     self.titleText = Instance.new("TextLabel")
@@ -134,8 +172,24 @@ function MafuyoLib.new(parent)
     self.toggleButton.Size = UDim2.new(0, 40, 0, 40)
     self.toggleButton.Position = UDim2.new(0, 10, 0, 10)
     self.toggleButton.BackgroundColor3 = config.accentColor
-    self.toggleButton.Visible = false
+    self.toggleButton.Visible = false  -- Initially not visible
+    self.toggleButton.ZIndex = 10  -- Make sure it's above other elements
     self.toggleButton.Parent = self.gui
+    
+    -- Add shadow to toggle button
+    local toggleShadow = Instance.new("ImageLabel")
+    toggleShadow.Name = "Shadow"
+    toggleShadow.AnchorPoint = Vector2.new(0.5, 0.5)
+    toggleShadow.BackgroundTransparency = 1
+    toggleShadow.Position = UDim2.new(0.5, 0, 0.5, 0)
+    toggleShadow.Size = UDim2.new(1, 15, 1, 15)
+    toggleShadow.ZIndex = 9
+    toggleShadow.Image = "rbxassetid://6014261993"
+    toggleShadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
+    toggleShadow.ImageTransparency = 0.5
+    toggleShadow.ScaleType = Enum.ScaleType.Slice
+    toggleShadow.SliceCenter = Rect.new(49, 49, 450, 450)
+    toggleShadow.Parent = self.toggleButton
     
     -- Add corner radius to toggle button
     local toggleCorner = Instance.new("UICorner")
@@ -165,6 +219,20 @@ function MafuyoLib.new(parent)
     self.tabsContainer.BorderSizePixel = 0
     self.tabsContainer.Parent = self.content
     
+    -- Add corner radius to tabs container
+    local tabsCorner = Instance.new("UICorner")
+    tabsCorner.CornerRadius = UDim.new(0, 4)
+    tabsCorner.Parent = self.tabsContainer
+    
+    -- Fix the top corners of tabs container
+    local topFrame = Instance.new("Frame")
+    topFrame.Name = "TopFrame"
+    topFrame.Size = UDim2.new(1, 0, 0, 10)
+    topFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    topFrame.BorderSizePixel = 0
+    topFrame.ZIndex = self.tabsContainer.ZIndex
+    topFrame.Parent = self.tabsContainer
+    
     -- Create tab content container
     self.tabContent = Instance.new("Frame")
     self.tabContent.Name = "TabContent"
@@ -176,11 +244,21 @@ function MafuyoLib.new(parent)
     self.tabs = {}
     self.activeTab = nil
     
+    -- Add notification system
+    self.notifications = {}
+    self.notificationContainer = Instance.new("Frame")
+    self.notificationContainer.Name = "NotificationContainer"
+    self.notificationContainer.Size = UDim2.new(0, 250, 1, 0)
+    self.notificationContainer.Position = UDim2.new(1, -260, 0, 0)
+    self.notificationContainer.BackgroundTransparency = 1
+    self.notificationContainer.Parent = self.gui
+    
     return self
 end
 
--- Set up dragging functionality
+-- Set up dragging functionality with improved performance
 function MafuyoLib:setupDragging()
+    local UserInputService = game:GetService("UserInputService")
     local dragging = false
     local dragInput
     local dragStart
@@ -197,9 +275,18 @@ function MafuyoLib:setupDragging()
             dragStart = input.Position
             startPos = self.main.Position
             
-            input.Changed:Connect(function()
+            -- Disconnect previous connection if it exists
+            if self.dragConnection then
+                self.dragConnection:Disconnect()
+            end
+            
+            self.dragConnection = input.Changed:Connect(function()
                 if input.UserInputState == Enum.UserInputState.End then
                     dragging = false
+                    if self.dragConnection then
+                        self.dragConnection:Disconnect()
+                        self.dragConnection = nil
+                    end
                 end
             end)
         end
@@ -211,7 +298,12 @@ function MafuyoLib:setupDragging()
         end
     end)
     
-    game:GetService("UserInputService").InputChanged:Connect(function(input)
+    -- Disconnect previous connection if it exists
+    if self.dragInputConnection then
+        self.dragInputConnection:Disconnect()
+    end
+    
+    self.dragInputConnection = UserInputService.InputChanged:Connect(function(input)
         if input == dragInput and dragging then
             updateDrag(input)
         end
@@ -230,13 +322,36 @@ function MafuyoLib:setupDragging()
     
     self.toggleButton.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            -- Set a flag to track if this is a drag or a click
+            self.toggleDragging = false
             toggleDragging = true
             toggleDragStart = input.Position
             toggleStartPos = self.toggleButton.Position
             
-            input.Changed:Connect(function()
+            -- Disconnect previous connection if it exists
+            if self.toggleDragConnection then
+                self.toggleDragConnection:Disconnect()
+            end
+            
+            self.toggleDragConnection = input.Changed:Connect(function()
                 if input.UserInputState == Enum.UserInputState.End then
                     toggleDragging = false
+                    -- If we moved more than 5 pixels, consider it a drag
+                    local endPos = input.Position
+                    local dragDistance = (endPos - toggleDragStart).Magnitude
+                    if dragDistance > 5 then
+                        self.toggleDragging = true
+                    end
+                    
+                    -- Small delay to allow click handler to check the flag
+                    task.delay(0.1, function()
+                        self.toggleDragging = false
+                    end)
+                    
+                    if self.toggleDragConnection then
+                        self.toggleDragConnection:Disconnect()
+                        self.toggleDragConnection = nil
+                    end
                 end
             end)
         end
@@ -248,50 +363,116 @@ function MafuyoLib:setupDragging()
         end
     end)
     
-    game:GetService("UserInputService").InputChanged:Connect(function(input)
+    -- Disconnect previous connection if it exists
+    if self.toggleDragInputConnection then
+        self.toggleDragInputConnection:Disconnect()
+    end
+    
+    self.toggleDragInputConnection = UserInputService.InputChanged:Connect(function(input)
         if input == toggleDragInput and toggleDragging then
             updateToggleDrag(input)
         end
     end)
 end
 
--- Set up button functionality
+-- Set up button functionality with improved animations
 function MafuyoLib:setupButtons()
     -- Close button
     self.closeButton.MouseButton1Click:Connect(function()
-        self.main.Visible = false
-        self.toggleButton.Visible = true
+        -- Animate the main UI closing
+        local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+        local tween = game:GetService("TweenService"):Create(
+            self.main, 
+            tweenInfo, 
+            {Size = UDim2.new(0, 0, 0, 0), Position = UDim2.new(self.main.Position.X.Scale, self.main.Position.X.Offset + self.main.AbsoluteSize.X/2, self.main.Position.Y.Scale, self.main.Position.Y.Offset + self.main.AbsoluteSize.Y/2)}
+        )
+        
+        tween.Completed:Connect(function()
+            self.main.Visible = false
+            self.main.Size = config.defaultSize
+            self.main.Position = UDim2.new(self.main.Position.X.Scale, self.main.Position.X.Offset - self.main.AbsoluteSize.X/2, self.main.Position.Y.Scale, self.main.Position.Y.Offset - self.main.AbsoluteSize.Y/2)
+            
+            -- Show and animate the toggle button
+            self.toggleButton.Size = UDim2.new(0, 0, 0, 0)
+            self.toggleButton.Visible = true
+            
+            local toggleTween = game:GetService("TweenService"):Create(
+                self.toggleButton,
+                tweenInfo,
+                {Size = UDim2.new(0, 40, 0, 40)}
+            )
+            
+            toggleTween:Play()
+        end)
+        
+        tween:Play()
     end)
     
     -- Minimize button
     self.minimizeButton.MouseButton1Click:Connect(function()
-        self.main.Size = config.minSize
-        self.content.Visible = false
-        
-        -- Adjust title bar for minimized state
-        self.titleText.Text = "M"
-        self.minimizeButton.Text = "+"
-        
-        -- Change minimize button behavior
-        local oldFunc = self.minimizeButton.MouseButton1Click:Connect(function() end)
-        oldFunc:Disconnect()
-        
-        self.minimizeButton.MouseButton1Click:Connect(function()
-            self.main.Size = config.defaultSize
+        if self.content.Visible then
+            -- Minimize
+            local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+            local tween = game:GetService("TweenService"):Create(
+                self.main, 
+                tweenInfo, 
+                {Size = config.minSize}
+            )
+            
+            tween.Completed:Connect(function()
+                self.content.Visible = false
+                self.titleText.Text = "M"
+                self.minimizeButton.Text = "+"
+            end)
+            
+            tween:Play()
+        else
+            -- Maximize
             self.content.Visible = true
             self.titleText.Text = config.title
             self.minimizeButton.Text = "-"
             
-            -- Reset minimize button behavior
-            self:setupButtons()
-        end)
+            local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+            local tween = game:GetService("TweenService"):Create(
+                self.main, 
+                tweenInfo, 
+                {Size = config.defaultSize}
+            )
+            
+            tween:Play()
+        end
     end)
     
     -- Toggle button
     self.toggleButton.MouseButton1Click:Connect(function()
         if not self.toggleDragging then
-            self.main.Visible = true
-            self.toggleButton.Visible = false
+            -- Hide toggle button
+            local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+            local tween = game:GetService("TweenService"):Create(
+                self.toggleButton,
+                tweenInfo,
+                {Size = UDim2.new(0, 0, 0, 0)}
+            )
+            
+            tween.Completed:Connect(function()
+                self.toggleButton.Visible = false
+                self.toggleButton.Size = UDim2.new(0, 40, 0, 40)
+                
+                -- Show and animate the main UI
+                self.main.Size = UDim2.new(0, 0, 0, 0)
+                self.main.Position = UDim2.new(self.toggleButton.Position.X.Scale, self.toggleButton.Position.X.Offset, self.toggleButton.Position.Y.Scale, self.toggleButton.Position.Y.Offset)
+                self.main.Visible = true
+                
+                local mainTween = game:GetService("TweenService"):Create(
+                    self.main,
+                    tweenInfo,
+                    {Size = config.defaultSize, Position = UDim2.new(self.toggleButton.Position.X.Scale, self.toggleButton.Position.X.Offset - config.defaultSize.X.Offset/2, self.toggleButton.Position.Y.Scale, self.toggleButton.Position.Y.Offset - config.defaultSize.Y.Offset/2)}
+                )
+                
+                mainTween:Play()
+            end)
+            
+            tween:Play()
         end
     end)
 end
@@ -328,6 +509,7 @@ function MafuyoLib:createTab(name)
     tabFrame.BackgroundTransparency = 1
     tabFrame.BorderSizePixel = 0
     tabFrame.ScrollBarThickness = 4
+    tabFrame.ScrollBarImageColor3 = config.accentColor
     tabFrame.Visible = false
     tabFrame.Parent = self.tabContent
     
@@ -339,7 +521,7 @@ function MafuyoLib:createTab(name)
     padding.PaddingBottom = UDim.new(0, 10)
     padding.Parent = tabFrame
     
-    -- Add layout for tab content
+        -- Add layout for tab content
     local layout = Instance.new("UIListLayout")
     layout.Padding = UDim.new(0, 5)
     layout.SortOrder = Enum.SortOrder.LayoutOrder
@@ -353,6 +535,19 @@ function MafuyoLib:createTab(name)
     -- Tab button click handler
     tabButton.MouseButton1Click:Connect(function()
         self:selectTab(name)
+    end)
+    
+    -- Tab button hover effect
+    tabButton.MouseEnter:Connect(function()
+        if self.activeTab and self.activeTab.name ~= name then
+            tabButton.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+        end
+    end)
+    
+    tabButton.MouseLeave:Connect(function()
+        if self.activeTab and self.activeTab.name ~= name then
+            tabButton.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+        end
     end)
     
     local tab = {
@@ -371,15 +566,31 @@ function MafuyoLib:createTab(name)
     return tab
 end
 
--- Select a tab
+-- Select a tab with animation
 function MafuyoLib:selectTab(name)
     for _, tab in ipairs(self.tabs) do
         if tab.name == name then
-            tab.button.BackgroundColor3 = config.accentColor
+            -- Animate the tab selection
+            local tweenInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+            local tween = game:GetService("TweenService"):Create(
+                tab.button,
+                tweenInfo,
+                {BackgroundColor3 = config.accentColor}
+            )
+            
+            tween:Play()
             tab.frame.Visible = true
             self.activeTab = tab
         else
-            tab.button.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+            -- Animate the tab deselection
+            local tweenInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+            local tween = game:GetService("TweenService"):Create(
+                tab.button,
+                tweenInfo,
+                {BackgroundColor3 = Color3.fromRGB(35, 35, 35)}
+            )
+            
+            tween:Play()
             tab.frame.Visible = false
         end
     end
@@ -405,17 +616,82 @@ function MafuyoLib:addButton(tabName, text, callback)
             corner.CornerRadius = UDim.new(0, 4)
             corner.Parent = button
             
+            -- Add ripple effect
+            local ripple = Instance.new("Frame")
+            ripple.Name = "Ripple"
+            ripple.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+            ripple.BackgroundTransparency = 0.8
+            ripple.BorderSizePixel = 0
+            ripple.ZIndex = button.ZIndex + 1
+            ripple.Visible = false
+            
+            -- Add corner radius to ripple
+            local rippleCorner = Instance.new("UICorner")
+            rippleCorner.CornerRadius = UDim.new(1, 0)
+            rippleCorner.Parent = ripple
+            
+            ripple.Parent = button
+            
             -- Button hover effect
             button.MouseEnter:Connect(function()
-                button.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+                local tweenInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+                local tween = game:GetService("TweenService"):Create(
+                    button,
+                    tweenInfo,
+                    {BackgroundColor3 = Color3.fromRGB(80, 80, 80)}
+                )
+                
+                tween:Play()
             end)
             
             button.MouseLeave:Connect(function()
-                button.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+                local tweenInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+                local tween = game:GetService("TweenService"):Create(
+                    button,
+                    tweenInfo,
+                    {BackgroundColor3 = Color3.fromRGB(60, 60, 60)}
+                )
+                
+                tween:Play()
+            end)
+            
+            -- Ripple effect
+            button.MouseButton1Down:Connect(function(x, y)
+                -- Create ripple effect at mouse position
+                local mouse = game:GetService("Players").LocalPlayer:GetMouse()
+                local mousePos = Vector2.new(mouse.X, mouse.Y)
+                local buttonPos = button.AbsolutePosition
+                local buttonSize = button.AbsoluteSize
+                
+                local rippleX = mousePos.X - buttonPos.X
+                local rippleY = mousePos.Y - buttonPos.Y
+                
+                ripple.Position = UDim2.new(0, rippleX, 0, rippleY)
+                ripple.Size = UDim2.new(0, 0, 0, 0)
+                ripple.Visible = true
+                
+                local maxSize = math.max(buttonSize.X, buttonSize.Y) * 2
+                
+                local tweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+                local tween = game:GetService("TweenService"):Create(
+                    ripple,
+                    tweenInfo,
+                    {Size = UDim2.new(0, maxSize, 0, maxSize), BackgroundTransparency = 1, Position = UDim2.new(0, rippleX - maxSize/2, 0, rippleY - maxSize/2)}
+                )
+                
+                tween.Completed:Connect(function()
+                    ripple.Visible = false
+                end)
+                
+                tween:Play()
             end)
             
             -- Button click handler
-            button.MouseButton1Click:Connect(callback)
+            button.MouseButton1Click:Connect(function()
+                if callback then
+                    callback()
+                end
+            end)
             
             return button
         end
@@ -467,6 +743,21 @@ function MafuyoLib:addToggle(tabName, text, default, callback)
             circleCorner.CornerRadius = UDim.new(1, 0)
             circleCorner.Parent = toggleCircle
             
+            -- Add shadow to circle
+            local circleShadow = Instance.new("ImageLabel")
+            circleShadow.Name = "Shadow"
+            circleShadow.AnchorPoint = Vector2.new(0.5, 0.5)
+            circleShadow.BackgroundTransparency = 1
+            circleShadow.Position = UDim2.new(0.5, 0, 0.5, 0)
+            circleShadow.Size = UDim2.new(1, 4, 1, 4)
+            circleShadow.ZIndex = toggleCircle.ZIndex - 1
+            circleShadow.Image = "rbxassetid://6014261993"
+            circleShadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
+            circleShadow.ImageTransparency = 0.7
+            circleShadow.ScaleType = Enum.ScaleType.Slice
+            circleShadow.SliceCenter = Rect.new(49, 49, 450, 450)
+            circleShadow.Parent = toggleCircle
+            
             -- Make the whole container clickable
             local toggleClick = Instance.new("TextButton")
             toggleClick.Name = "ClickArea"
@@ -480,14 +771,23 @@ function MafuyoLib:addToggle(tabName, text, default, callback)
             toggleClick.MouseButton1Click:Connect(function()
                 enabled = not enabled
                 
-                toggleButton.BackgroundColor3 = enabled and config.accentColor or Color3.fromRGB(60, 60, 60)
-                toggleCircle:TweenPosition(
-                    enabled and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8),
-                    Enum.EasingDirection.InOut,
-                    Enum.EasingStyle.Quad,
-                    0.15,
-                    true
+                -- Animate the toggle
+                local buttonTweenInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+                local buttonTween = game:GetService("TweenService"):Create(
+                    toggleButton,
+                    buttonTweenInfo,
+                    {BackgroundColor3 = enabled and config.accentColor or Color3.fromRGB(60, 60, 60)}
                 )
+                
+                local circleTweenInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+                local circleTween = game:GetService("TweenService"):Create(
+                    toggleCircle,
+                    circleTweenInfo,
+                    {Position = enabled and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8)}
+                )
+                
+                buttonTween:Play()
+                circleTween:Play()
                 
                 if callback then
                     callback(enabled)
@@ -569,6 +869,21 @@ function MafuyoLib:addSlider(tabName, text, min, max, default, callback)
             buttonCorner.CornerRadius = UDim.new(1, 0)
             buttonCorner.Parent = sliderButton
             
+            -- Add shadow to button
+            local buttonShadow = Instance.new("ImageLabel")
+            buttonShadow.Name = "Shadow"
+            buttonShadow.AnchorPoint = Vector2.new(0.5, 0.5)
+            buttonShadow.BackgroundTransparency = 1
+            buttonShadow.Position = UDim2.new(0.5, 0, 0.5, 0)
+            buttonShadow.Size = UDim2.new(1, 4, 1, 4)
+            buttonShadow.ZIndex = sliderButton.ZIndex - 1
+            buttonShadow.Image = "rbxassetid://6014261993"
+            buttonShadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
+            buttonShadow.ImageTransparency = 0.7
+            buttonShadow.ScaleType = Enum.ScaleType.Slice
+            buttonShadow.SliceCenter = Rect.new(49, 49, 450, 450)
+            buttonShadow.Parent = sliderButton
+            
             -- Make the whole track clickable
             local trackButton = Instance.new("TextButton")
             trackButton.Name = "TrackButton"
@@ -586,8 +901,24 @@ function MafuyoLib:addSlider(tabName, text, min, max, default, callback)
                 
                 value = newValue
                 valueLabel.Text = tostring(value)
-                sliderFill.Size = UDim2.new(pos, 0, 1, 0)
-                sliderButton.Position = UDim2.new(pos, -8, 0.7, -5)
+                
+                -- Animate the slider
+                local fillTweenInfo = TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+                local fillTween = game:GetService("TweenService"):Create(
+                    sliderFill,
+                    fillTweenInfo,
+                    {Size = UDim2.new(pos, 0, 1, 0)}
+                )
+                
+                local buttonTweenInfo = TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+                local buttonTween = game:GetService("TweenService"):Create(
+                    sliderButton,
+                    buttonTweenInfo,
+                    {Position = UDim2.new(pos, -8, 0.7, -5)}
+                )
+                
+                fillTween:Play()
+                buttonTween:Play()
                 
                 if callback then
                     callback(value)
@@ -632,443 +963,219 @@ function MafuyoLib:addSlider(tabName, text, min, max, default, callback)
     end
 end
 
--- Add a text input to a tab
-function MafuyoLib:addTextbox(tabName, text, placeholder, callback)
-    for _, tab in ipairs(self.tabs) do
-        if tab.name == tabName then
-            local textboxContainer = Instance.new("Frame")
-            textboxContainer.Name = text .. "TextboxContainer"
-            textboxContainer.Size = UDim2.new(1, 0, 0, 50)
-            textboxContainer.BackgroundTransparency = 1
-            textboxContainer.Parent = tab.frame
-            
-            local textboxLabel = Instance.new("TextLabel")
-            textboxLabel.Name = "Label"
-            textboxLabel.Size = UDim2.new(1, 0, 0, 20)
-            textboxLabel.BackgroundTransparency = 1
-            textboxLabel.Text = text
-            textboxLabel.TextColor3 = config.textColor
-            textboxLabel.TextSize = 14
-            textboxLabel.Font = Enum.Font.Gotham
-            textboxLabel.TextXAlignment = Enum.TextXAlignment.Left
-            textboxLabel.Parent = textboxContainer
-            
-            local textbox = Instance.new("TextBox")
-            textbox.Name = "Textbox"
-            textbox.Size = UDim2.new(1, 0, 0, 30)
-            textbox.Position = UDim2.new(0, 0, 0.5, 0)
-            textbox.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-            textbox.BorderSizePixel = 0
-            textbox.PlaceholderText = placeholder or ""
-            textbox.PlaceholderColor3 = Color3.fromRGB(180, 180, 180)
-            textbox.Text = ""
-            textbox.TextColor3 = config.textColor
-            textbox.TextSize = 14
-            textbox.Font = Enum.Font.Gotham
-            textbox.Parent = textboxContainer
-            
-            -- Add corner radius
-            local corner = Instance.new("UICorner")
-            corner.CornerRadius = UDim.new(0, 4)
-            corner.Parent = textbox
-            
-            -- Add padding
-            local padding = Instance.new("UIPadding")
-            padding.PaddingLeft = UDim.new(0, 8)
-            padding.PaddingRight = UDim.new(0, 8)
-            padding.Parent = textbox
-            
-            -- Textbox focus/unfocus effects
-            textbox.Focused:Connect(function()
-                textbox.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
-            end)
-            
-            textbox.FocusLost:Connect(function(enterPressed)
-                textbox.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-                
-                if enterPressed and callback then
-                    callback(textbox.Text)
-                end
-            end)
-            
-            return textboxContainer
+-- Add notification system
+function MafuyoLib:notify(title, message, duration)
+    duration = duration or 5
+    
+    -- Create notification
+    local notification = Instance.new("Frame")
+    notification.Name = "Notification"
+    notification.Size = UDim2.new(0, 240, 0, 0)
+    notification.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    notification.BorderSizePixel = 0
+    notification.ClipsDescendants = true
+    notification.Position = UDim2.new(0, 0, 0, #self.notifications * 80)
+    notification.Parent = self.notificationContainer
+    
+    -- Add corner radius
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 4)
+    corner.Parent = notification
+    
+    -- Add shadow
+    local shadow = Instance.new("ImageLabel")
+    shadow.Name = "Shadow"
+    shadow.AnchorPoint = Vector2.new(0.5, 0.5)
+    shadow.BackgroundTransparency = 1
+    shadow.Position = UDim2.new(0.5, 0, 0.5, 0)
+    shadow.Size = UDim2.new(1, 15, 1, 15)
+    shadow.ZIndex = notification.ZIndex - 1
+    shadow.Image = "rbxassetid://6014261993"
+    shadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
+    shadow.ImageTransparency = 0.5
+    shadow.ScaleType = Enum.ScaleType.Slice
+    shadow.SliceCenter = Rect.new(49, 49, 450, 450)
+    shadow.Parent = notification
+    
+    -- Create title
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Name = "Title"
+    titleLabel.Size = UDim2.new(1, -10, 0, 25)
+    titleLabel.Position = UDim2.new(0, 5, 0, 5)
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.Text = title
+    titleLabel.TextColor3 = config.textColor
+    titleLabel.TextSize = 16
+    titleLabel.Font = Enum.Font.GothamBold
+    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    titleLabel.Parent = notification
+    
+        -- Create message
+    local messageLabel = Instance.new("TextLabel")
+    messageLabel.Name = "Message"
+    messageLabel.Size = UDim2.new(1, -10, 0, 40)
+    messageLabel.Position = UDim2.new(0, 5, 0, 30)
+    messageLabel.BackgroundTransparency = 1
+    messageLabel.Text = message
+    messageLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    messageLabel.TextSize = 14
+    messageLabel.Font = Enum.Font.Gotham
+    messageLabel.TextXAlignment = Enum.TextXAlignment.Left
+    messageLabel.TextYAlignment = Enum.TextYAlignment.Top
+    messageLabel.TextWrapped = true
+    messageLabel.Parent = notification
+    
+    -- Create close button
+    local closeButton = Instance.new("TextButton")
+    closeButton.Name = "CloseButton"
+    closeButton.Size = UDim2.new(0, 20, 0, 20)
+    closeButton.Position = UDim2.new(1, -25, 0, 5)
+    closeButton.BackgroundTransparency = 1
+    closeButton.Text = "×"
+    closeButton.TextColor3 = config.textColor
+    closeButton.TextSize = 20
+    closeButton.Font = Enum.Font.GothamBold
+    closeButton.Parent = notification
+    
+    -- Add notification to list
+    table.insert(self.notifications, notification)
+    
+    -- Animate notification in
+    notification:TweenSize(
+        UDim2.new(0, 240, 0, 75),
+        Enum.EasingDirection.Out,
+        Enum.EasingStyle.Quad,
+        0.3,
+        true
+    )
+    
+    -- Close button handler
+    closeButton.MouseButton1Click:Connect(function()
+        self:removeNotification(notification)
+    end)
+    
+    -- Auto close after duration
+    task.delay(duration, function()
+        self:removeNotification(notification)
+    end)
+    
+    return notification
+end
+
+-- Remove notification
+function MafuyoLib:removeNotification(notification)
+    -- Find notification index
+    local index = table.find(self.notifications, notification)
+    if not index then return end
+    
+    -- Remove from list
+    table.remove(self.notifications, index)
+    
+    -- Animate notification out
+    notification:TweenSize(
+        UDim2.new(0, 240, 0, 0),
+        Enum.EasingDirection.Out,
+        Enum.EasingStyle.Quad,
+        0.3,
+        true,
+        function()
+            notification:Destroy()
         end
+    )
+    
+    -- Reposition other notifications
+    for i, notif in ipairs(self.notifications) do
+        notif:TweenPosition(
+            UDim2.new(0, 0, 0, (i - 1) * 80),
+            Enum.EasingDirection.Out,
+            Enum.EasingStyle.Quad,
+            0.3,
+            true
+        )
     end
 end
 
--- Add a dropdown to a tab
-function MafuyoLib:addDropdown(tabName, text, options, callback)
+-- Set theme
+function MafuyoLib:setTheme(theme)
+    if type(theme) ~= "table" then return end
+    
+    -- Update config
+    for key, value in pairs(theme) do
+        if config[key] and typeof(config[key]) == typeof(value) then
+            config[key] = value
+        end
+    end
+    
+    -- Update UI elements
+    self.main.BackgroundColor3 = config.defaultColor
+    self.titleBar.BackgroundColor3 = config.accentColor
+    self.titleText.TextColor3 = config.textColor
+    
+    -- Update bottom frame
+    if self.titleBar:FindFirstChild("BottomFrame") then
+        self.titleBar.BottomFrame.BackgroundColor3 = config.accentColor
+    end
+    
+    -- Update tabs
+    if self.activeTab then
+        self.activeTab.button.BackgroundColor3 = config.accentColor
+    end
+    
+    -- Update toggle button
+    self.toggleButton.BackgroundColor3 = config.accentColor
+    
+    -- Update all toggles
     for _, tab in ipairs(self.tabs) do
-        if tab.name == tabName then
-            local dropdownContainer = Instance.new("Frame")
-            dropdownContainer.Name = text .. "DropdownContainer"
-            dropdownContainer.Size = UDim2.new(1, 0, 0, 50)
-            dropdownContainer.BackgroundTransparency = 1
-            dropdownContainer.Parent = tab.frame
-            
-            local dropdownLabel = Instance.new("TextLabel")
-            dropdownLabel.Name = "Label"
-            dropdownLabel.Size = UDim2.new(1, 0, 0, 20)
-            dropdownLabel.BackgroundTransparency = 1
-            dropdownLabel.Text = text
-            dropdownLabel.TextColor3 = config.textColor
-            dropdownLabel.TextSize = 14
-            dropdownLabel.Font = Enum.Font.Gotham
-            dropdownLabel.TextXAlignment = Enum.TextXAlignment.Left
-            dropdownLabel.Parent = dropdownContainer
-            
-            local dropdownButton = Instance.new("TextButton")
-            dropdownButton.Name = "DropdownButton"
-            dropdownButton.Size = UDim2.new(1, 0, 0, 30)
-            dropdownButton.Position = UDim2.new(0, 0, 0.5, 0)
-            dropdownButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-            dropdownButton.BorderSizePixel = 0
-            dropdownButton.Text = options[1] or "Select..."
-            dropdownButton.TextColor3 = config.textColor
-            dropdownButton.TextSize = 14
-            dropdownButton.Font = Enum.Font.Gotham
-            dropdownButton.Parent = dropdownContainer
-            
-            -- Add corner radius
-            local corner = Instance.new("UICorner")
-            corner.CornerRadius = UDim.new(0, 4)
-            corner.Parent = dropdownButton
-            
-            -- Add arrow icon
-            local arrow = Instance.new("TextLabel")
-            arrow.Name = "Arrow"
-            arrow.Size = UDim2.new(0, 20, 0, 20)
-            arrow.Position = UDim2.new(1, -25, 0.5, -10)
-            arrow.BackgroundTransparency = 1
-            arrow.Text = "▼"
-            arrow.TextColor3 = config.textColor
-            arrow.TextSize = 14
-            arrow.Font = Enum.Font.Gotham
-            arrow.Parent = dropdownButton
-            
-            -- Create dropdown menu
-            local dropdownMenu = Instance.new("Frame")
-            dropdownMenu.Name = "DropdownMenu"
-            dropdownMenu.Size = UDim2.new(1, 0, 0, #options * 30)
-            dropdownMenu.Position = UDim2.new(0, 0, 1, 5)
-            dropdownMenu.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-            dropdownMenu.BorderSizePixel = 0
-            dropdownMenu.Visible = false
-            dropdownMenu.ZIndex = 10
-            dropdownMenu.Parent = dropdownButton
-            
-            -- Add corner radius
-            local menuCorner = Instance.new("UICorner")
-            menuCorner.CornerRadius = UDim.new(0, 4)
-            menuCorner.Parent = dropdownMenu
-            
-            -- Create option buttons
-            for i, option in ipairs(options) do
-                local optionButton = Instance.new("TextButton")
-                optionButton.Name = option .. "Option"
-                optionButton.Size = UDim2.new(1, 0, 0, 30)
-                optionButton.Position = UDim2.new(0, 0, 0, (i-1) * 30)
-                optionButton.BackgroundTransparency = 1
-                optionButton.Text = option
-                optionButton.TextColor3 = config.textColor
-                optionButton.TextSize = 14
-                optionButton.Font = Enum.Font.Gotham
-                optionButton.ZIndex = 10
-                optionButton.Parent = dropdownMenu
-                
-                -- Option hover effect
-                optionButton.MouseEnter:Connect(function()
-                    optionButton.BackgroundTransparency = 0.8
-                end)
-                
-                optionButton.MouseLeave:Connect(function()
-                    optionButton.BackgroundTransparency = 1
-                end)
-                
-                -- Option click handler
-                optionButton.MouseButton1Click:Connect(function()
-                    dropdownButton.Text = option
-                    dropdownMenu.Visible = false
-                    arrow.Text = "▼"
-                    
-                    if callback then
-                        callback(option)
+        for _, child in ipairs(tab.frame:GetChildren()) do
+            if child:IsA("Frame") and child.Name:match("ToggleContainer$") then
+                local toggleButton = child:FindFirstChild("ToggleButton")
+                if toggleButton then
+                    local circle = toggleButton:FindFirstChild("Circle")
+                    if circle and circle.Position.X.Scale > 0.5 then
+                        toggleButton.BackgroundColor3 = config.accentColor
                     end
-                end)
+                end
             end
-            
-            -- Toggle dropdown menu
-            dropdownButton.MouseButton1Click:Connect(function()
-                dropdownMenu.Visible = not dropdownMenu.Visible
-                arrow.Text = dropdownMenu.Visible and "▲" or "▼"
-            end)
-            
-            -- Close dropdown when clicking elsewhere
-            game:GetService("UserInputService").InputBegan:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                    local guiObjects = game:GetService("Players").LocalPlayer:GetGuiObjectsAtPosition(input.Position.X, input.Position.Y)
-                    local isInDropdown = false
-                    
-                    for _, obj in ipairs(guiObjects) do
-                        if obj:IsDescendantOf(dropdownMenu) or obj == dropdownButton then
-                            isInDropdown = true
-                            break
-                        end
-                    end
-                    
-                    if not isInDropdown and dropdownMenu.Visible then
-                        dropdownMenu.Visible = false
-                        arrow.Text = "▼"
-                    end
-                end
-            end)
-            
-            return dropdownContainer
         end
     end
-end
-
--- Add a color picker to a tab
-function MafuyoLib:addColorPicker(tabName, text, default, callback)
+    
+    -- Update all sliders
     for _, tab in ipairs(self.tabs) do
-        if tab.name == tabName then
-            local colorPickerContainer = Instance.new("Frame")
-            colorPickerContainer.Name = text .. "ColorPickerContainer"
-            colorPickerContainer.Size = UDim2.new(1, 0, 0, 50)
-            colorPickerContainer.BackgroundTransparency = 1
-            colorPickerContainer.Parent = tab.frame
-            
-            local colorPickerLabel = Instance.new("TextLabel")
-            colorPickerLabel.Name = "Label"
-            colorPickerLabel.Size = UDim2.new(1, -50, 0, 20)
-            colorPickerLabel.BackgroundTransparency = 1
-            colorPickerLabel.Text = text
-            colorPickerLabel.TextColor3 = config.textColor
-            colorPickerLabel.TextSize = 14
-            colorPickerLabel.Font = Enum.Font.Gotham
-            colorPickerLabel.TextXAlignment = Enum.TextXAlignment.Left
-            colorPickerLabel.Parent = colorPickerContainer
-            
-            local colorDisplay = Instance.new("Frame")
-            colorDisplay.Name = "ColorDisplay"
-            colorDisplay.Size = UDim2.new(0, 30, 0, 30)
-            colorDisplay.Position = UDim2.new(1, -40, 0.5, -15)
-            colorDisplay.BackgroundColor3 = default or Color3.fromRGB(255, 255, 255)
-            colorDisplay.BorderSizePixel = 0
-            colorDisplay.Parent = colorPickerContainer
-            
-            -- Add corner radius
-            local corner = Instance.new("UICorner")
-            corner.CornerRadius = UDim.new(0, 4)
-            corner.Parent = colorDisplay
-            
-            -- Make color display clickable
-            local colorButton = Instance.new("TextButton")
-            colorButton.Name = "ColorButton"
-            colorButton.Size = UDim2.new(1, 0, 1, 0)
-            colorButton.BackgroundTransparency = 1
-            colorButton.Text = ""
-            colorButton.Parent = colorDisplay
-            
-            -- Create color picker popup
-            local colorPicker = Instance.new("Frame")
-            colorPicker.Name = "ColorPicker"
-            colorPicker.Size = UDim2.new(0, 200, 0, 220)
-            colorPicker.Position = UDim2.new(1, -200, 1, 10)
-            colorPicker.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-            colorPicker.BorderSizePixel = 0
-            colorPicker.Visible = false
-            colorPicker.ZIndex = 10
-            colorPicker.Parent = colorPickerContainer
-            
-            -- Add corner radius
-            local pickerCorner = Instance.new("UICorner")
-            pickerCorner.CornerRadius = UDim.new(0, 4)
-            pickerCorner.Parent = colorPicker
-            
-            -- Create color palette
-            local colorPalette = Instance.new("ImageLabel")
-            colorPalette.Name = "ColorPalette"
-            colorPalette.Size = UDim2.new(0, 180, 0, 180)
-            colorPalette.Position = UDim2.new(0.5, -90, 0, 10)
-            colorPalette.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-            colorPalette.BorderSizePixel = 0
-            colorPalette.Image = "rbxassetid://3157191308"
-            colorPalette.ZIndex = 10
-            colorPalette.Parent = colorPicker
-            
-            -- Add corner radius
-            local paletteCorner = Instance.new("UICorner")
-            paletteCorner.CornerRadius = UDim.new(0, 4)
-            paletteCorner.Parent = colorPalette
-            
-            -- Create color selector
-            local colorSelector = Instance.new("Frame")
-            colorSelector.Name = "ColorSelector"
-            colorSelector.Size = UDim2.new(0, 10, 0, 10)
-            colorSelector.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-            colorSelector.BorderSizePixel = 0
-            colorSelector.ZIndex = 11
-            colorSelector.Parent = colorPalette
-            
-            -- Add corner radius
-            local selectorCorner = Instance.new("UICorner")
-            selectorCorner.CornerRadius = UDim.new(1, 0)
-            selectorCorner.Parent = colorSelector
-            
-            -- Create apply button
-            local applyButton = Instance.new("TextButton")
-            applyButton.Name = "ApplyButton"
-            applyButton.Size = UDim2.new(0, 180, 0, 20)
-            applyButton.Position = UDim2.new(0.5, -90, 1, -25)
-            applyButton.BackgroundColor3 = config.accentColor
-            applyButton.BorderSizePixel = 0
-            applyButton.Text = "Apply"
-            applyButton.TextColor3 = config.textColor
-            applyButton.TextSize = 14
-            applyButton.Font = Enum.Font.Gotham
-            applyButton.ZIndex = 10
-            applyButton.Parent = colorPicker
-            
-            -- Add corner radius
-            local applyCorner = Instance.new("UICorner")
-            applyCorner.CornerRadius = UDim.new(0, 4)
-            applyCorner.Parent = applyButton
-            
-            -- Toggle color picker
-            colorButton.MouseButton1Click:Connect(function()
-                colorPicker.Visible = not colorPicker.Visible
-            end)
-            
-            -- Color palette functionality
-            local selectedColor = default or Color3.fromRGB(255, 255, 255)
-            
-            local function updateColor(input)
-                local relativeX = math.clamp((input.Position.X - colorPalette.AbsolutePosition.X) / colorPalette.AbsoluteSize.X, 0, 1)
-                local relativeY = math.clamp((input.Position.Y - colorPalette.AbsolutePosition.Y) / colorPalette.AbsoluteSize.Y, 0, 1)
-                
-                colorSelector.Position = UDim2.new(relativeX, -5, relativeY, -5)
-                
-                -- Convert position to HSV, then to RGB
-                local h = 1 - relativeX
-                local s = relativeY
-                local v = 1
-                
-                -- HSV to RGB conversion
-                local hi = math.floor(h * 6)
-                local f = h * 6 - hi
-                local p = v * (1 - s)
-                local q = v * (1 - f * s)
-                local t = v * (1 - (1 - f) * s)
-                
-                local r, g, b
-                
-                if hi == 0 or hi == 6 then
-                    r, g, b = v, t, p
-                elseif hi == 1 then
-                    r, g, b = q, v, p
-                elseif hi == 2 then
-                    r, g, b = p, v, t
-                elseif hi == 3 then
-                    r, g, b = p, q, v
-                elseif hi == 4 then
-                    r, g, b = t, p, v
-                elseif hi == 5 then
-                    r, g, b = v, p, q
+        for _, child in ipairs(tab.frame:GetChildren()) do
+            if child:IsA("Frame") and child.Name:match("SliderContainer$") then
+                local track = child:FindFirstChild("Track")
+                if track then
+                    local fill = track:FindFirstChild("Fill")
+                    if fill then
+                        fill.BackgroundColor3 = config.accentColor
+                    end
                 end
-                
-                selectedColor = Color3.fromRGB(r * 255, g * 255, b * 255)
             end
-            
-            local dragging = false
-            
-            colorPalette.InputBegan:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                    dragging = true
-                    updateColor(input)
-                end
-            end)
-            
-            colorPalette.InputEnded:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                    dragging = false
-                end
-            end)
-            
-            game:GetService("UserInputService").InputChanged:Connect(function(input)
-                if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-                    updateColor(input)
-                end
-            end)
-            
-            -- Apply button functionality
-            applyButton.MouseButton1Click:Connect(function()
-                colorDisplay.BackgroundColor3 = selectedColor
-                colorPicker.Visible = false
-                
-                if callback then
-                    callback(selectedColor)
-                end
-            end)
-            
-            -- Close color picker when clicking elsewhere
-            game:GetService("UserInputService").InputBegan:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                    local guiObjects = game:GetService("Players").LocalPlayer:GetGuiObjectsAtPosition(input.Position.X, input.Position.Y)
-                    local isInColorPicker = false
-                    
-                    for _, obj in ipairs(guiObjects) do
-                        if obj:IsDescendantOf(colorPicker) or obj == colorDisplay then
-                            isInColorPicker = true
-                            break
-                        end
-                    end
-                    
-                    if not isInColorPicker and colorPicker.Visible then
-                        colorPicker.Visible = false
-                    end
-                end
-            end)
-            
-            return colorPickerContainer
         end
     end
 end
 
--- Add a label to a tab
-function MafuyoLib:addLabel(tabName, text)
-    for _, tab in ipairs(self.tabs) do
-        if tab.name == tabName then
-            local label = Instance.new("TextLabel")
-            label.Name = text .. "Label"
-            label.Size = UDim2.new(1, 0, 0, 30)
-            label.BackgroundTransparency = 1
-            label.Text = text
-            label.TextColor3 = config.textColor
-            label.TextSize = 14
-            label.Font = Enum.Font.Gotham
-            label.TextXAlignment = Enum.TextXAlignment.Left
-            label.Parent = tab.frame
-            
-            return label
-        end
+-- Destroy the UI
+function MafuyoLib:destroy()
+    -- Disconnect all connections
+    if self.dragConnection then
+        self.dragConnection:Disconnect()
     end
-end
-
--- Add a separator to a tab
-function MafuyoLib:addSeparator(tabName)
-    for _, tab in ipairs(self.tabs) do
-        if tab.name == tabName then
-            local separator = Instance.new("Frame")
-            separator.Name = "Separator"
-            separator.Size = UDim2.new(1, 0, 0, 1)
-            separator.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
-            separator.BorderSizePixel = 0
-            separator.Parent = tab.frame
-            
-            return separator
-        end
+    
+    if self.dragInputConnection then
+        self.dragInputConnection:Disconnect()
     end
+    
+    if self.toggleDragConnection then
+        self.toggleDragConnection:Disconnect()
+    end
+    
+    if self.toggleDragInputConnection then
+        self.toggleDragInputConnection:Disconnect()
+    end
+    
+    -- Destroy the GUI
+    self.gui:Destroy()
 end
 
 return MafuyoLib
