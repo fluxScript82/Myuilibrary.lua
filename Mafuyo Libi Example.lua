@@ -1,7 +1,7 @@
 -- Place this in a LocalScript
 
 -- Load the Mafuyo UI Library
-local Mafuyo = loadstring(game:HttpGet("https://raw.githubusercontent.com/fluxScript82/Myuilibrary.lua/refs/heads/main/KhoXine%20Lib%20Source.lua"))()
+local Mafuyo = loadstring(game:HttpGet("https://raw.githubusercontent.com/yourusername/MafuyoLib/main/source.lua"))()
 
 -- Create a new instance
 local UI = Mafuyo.new()
@@ -16,7 +16,6 @@ local Window = UI:CreateWindow("Mafuyo Cheat")
 local PlayerTab = Window:CreateTab("Player")
 local VisualTab = Window:CreateTab("Visuals")
 local MiscTab = Window:CreateTab("Misc")
-local SettingsTab = Window:CreateTab("Settings")
 
 -- Player Tab
 local MovementSection = PlayerTab:CreateSection("Movement")
@@ -26,14 +25,18 @@ local SpeedToggle = MovementSection:CreateToggle("Speed Hack", false, function(e
     -- Speed hack code would go here
     if enabled then
         UI:Notify("Speed Hack", "Speed hack enabled", "Info")
+        game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = 50
     else
         UI:Notify("Speed Hack", "Speed hack disabled", "Info")
+        game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = 16
     end
 end)
 
-local SpeedSlider = MovementSection:CreateSlider("Speed Value", 16, 200, 16, function(value)
+local SpeedSlider = MovementSection:CreateSlider("Speed Value", 16, 200, 50, function(value)
     -- Set player speed
-    game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = value
+    if SpeedToggle.Value then
+        game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = value
+    end
 end)
 
 -- Jump hack
@@ -41,43 +44,11 @@ local JumpToggle = MovementSection:CreateToggle("Jump Hack", false, function(ena
     -- Jump hack code would go here
     if enabled then
         UI:Notify("Jump Hack", "Jump hack enabled", "Info")
+        game.Players.LocalPlayer.Character.Humanoid.JumpPower = 100
     else
         UI:Notify("Jump Hack", "Jump hack disabled", "Info")
+        game.Players.LocalPlayer.Character.Humanoid.JumpPower = 50
     end
-end)
-
-local JumpSlider = MovementSection:CreateSlider("Jump Power", 50, 300, 50, function(value)
-    -- Set jump power
-    game.Players.LocalPlayer.Character.Humanoid.JumpPower = value
-end)
-
--- Fly hack
-MovementSection:CreateButton("Toggle Fly", function()
-    -- Fly hack code would go here
-    UI:Notify("Fly Hack", "Fly hack toggled", "Info")
-end)
-
--- Combat Section
-local CombatSection = PlayerTab:CreateSection("Combat")
-
--- Aimbot
-CombatSection:CreateToggle("Aimbot", false, function(enabled)
-    -- Aimbot code would go here
-    if enabled then
-        UI:Notify("Aimbot", "Aimbot enabled", "Warning")
-    else
-        UI:Notify("Aimbot", "Aimbot disabled", "Info")
-    end
-end)
-
--- Aimbot settings
-CombatSection:CreateDropdown("Aimbot Target", {"Head", "Torso", "Random"}, "Head", function(option)
-    -- Set aimbot target
-    UI:Notify("Aimbot", "Target set to " .. option, "Info")
-end)
-
-CombatSection:CreateSlider("Aimbot Smoothness", 0, 100, 50, function(value)
-    -- Set aimbot smoothness
 end)
 
 -- Visuals Tab
@@ -91,36 +62,6 @@ ESPSection:CreateToggle("Player ESP", false, function(enabled)
     else
         UI:Notify("ESP", "Player ESP disabled", "Info")
     end
-end)
-
--- ESP Settings
-ESPSection:CreateToggle("Show Names", true, function(enabled)
-    -- Toggle names in ESP
-end)
-
-ESPSection:CreateToggle("Show Boxes", true, function(enabled)
-    -- Toggle boxes in ESP
-end)
-
-ESPSection:CreateToggle("Show Health", true, function(enabled)
-    -- Toggle health in ESP
-end)
-
-ESPSection:CreateColorPicker("ESP Color", Color3.fromRGB(255, 0, 0), function(color)
-    -- Set ESP color
-end)
-
--- Chams Section
-local ChamsSection = VisualTab:CreateSection("Chams")
-
--- Chams Toggle
-ChamsSection:CreateToggle("Player Chams", false, function(enabled)
-    -- Chams code would go here
-end)
-
--- Chams Settings
-ChamsSection:CreateColorPicker("Chams Color", Color3.fromRGB(0, 255, 0), function(color)
-    -- Set chams color
 end)
 
 -- Misc Tab
@@ -154,47 +95,7 @@ TeleportSection:CreateButton("Teleport to Player", function()
     end
 end)
 
--- Auto Farm Section
-local AutoFarmSection = MiscTab:CreateSection("Auto Farm")
-
--- Auto farm toggle
-AutoFarmSection:CreateToggle("Auto Farm", false, function(enabled)
-    -- Auto farm code would go here
-    if enabled then
-        UI:Notify("Auto Farm", "Auto farm enabled", "Info")
-    else
-        UI:Notify("Auto Farm", "Auto farm disabled", "Info")
-    end
-end)
-
--- Settings Tab
-local ConfigSection = SettingsTab:CreateSection("Configuration")
-
--- Save/Load Config
-ConfigSection:CreateTextbox("Config Name", "Enter config name...", "", function(text)
-    -- Config name
-end)
-
-ConfigSection:CreateButton("Save Config", function()
-    -- Save config code would go here
-    UI:Notify("Config", "Configuration saved", "Success")
-end)
-
-ConfigSection:CreateButton("Load Config", function()
-    -- Load config code would go here
-    UI:Notify("Config", "Configuration loaded", "Success")
-end)
-
--- UI Settings
-local UISection = SettingsTab:CreateSection("UI Settings")
-
--- Keybind to toggle UI
-UISection:CreateKeybind("Toggle UI", Enum.KeyCode.RightShift, function()
-    -- This is handled automatically by the library
-end)
-
--- Credits
-local CreditsSection = SettingsTab:CreateSection("Credits")
-CreditsSection:CreateLabel("Mafuyo Cheat v1.0")
-CreditsSection:CreateLabel("Created by: Your Name")
-CreditsSection:CreateLabel("Discord: your_discord")
+-- Print instructions
+print("Mafuyo Cheat loaded!")
+print("Click the 'M' logo to toggle the UI")
+print("Or press Right Shift to toggle the UI")
