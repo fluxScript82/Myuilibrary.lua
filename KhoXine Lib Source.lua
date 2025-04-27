@@ -2,20 +2,12 @@
     Mafuyo UI Library
     A sleek UI library for Roblox scripting tools
     
-    Usage:
-    local Mafuyo = loadstring(game:HttpGet("https://raw.githubusercontent.com/yourusername/MafuyoLib/main/source.lua"))()
-    local Window = Mafuyo:CreateWindow("Mafuyo Cheats")
-    
-    local PlayerTab = Window:CreateTab("Player")
-    local SpeedSection = PlayerTab:CreateSection("Movement")
-    
-    SpeedSection:CreateToggle("Speed Hack", false, function(enabled)
-        -- Speed hack code here
-    end)
-    
-    SpeedSection:CreateSlider("Speed Value", 16, 100, 16, function(value)
-        -- Set speed value
-    end)
+    Features:
+    - Draggable UI windows
+    - Small logo to toggle UI visibility
+    - Comprehensive UI elements
+    - Notification system
+    - Clean, modern design
 ]]
 
 local Mafuyo = {}
@@ -59,6 +51,10 @@ local Theme = {
     NotificationError = Color3.fromRGB(255, 0, 0),
     NotificationInfo = Color3.fromRGB(0, 170, 255),
     NotificationWarning = Color3.fromRGB(255, 255, 0),
+    
+    -- Logo
+    LogoBackground = Color3.fromRGB(30, 30, 30),
+    LogoAccent = Color3.fromRGB(255, 0, 0),
 }
 
 -- Utility Functions
@@ -296,6 +292,89 @@ function Mafuyo:Notify(title, message, notificationType, duration)
     return Notification
 end
 
+-- Create Logo
+function Mafuyo:CreateLogo()
+    -- Create logo container
+    local LogoFrame = Create("Frame")({
+        Name = "MafuyoLogo",
+        BackgroundColor3 = Theme.LogoBackground,
+        Position = UDim2.new(0, 20, 0, 20),
+        Size = UDim2.new(0, 50, 0, 50),
+        ZIndex = 1000,
+        Parent = self.GUI
+    })
+    
+    RoundBox(8).Parent = LogoFrame
+    Shadow(LogoFrame, 10, 0.3)
+    
+    -- Create logo accent
+    local LogoAccent = Create("Frame")({
+        Name = "Accent",
+        BackgroundColor3 = Theme.LogoAccent,
+        Position = UDim2.new(0, 0, 1, -2),
+        Size = UDim2.new(1, 0, 0, 2),
+        ZIndex = 1001,
+        Parent = LogoFrame
+    })
+    
+    RoundBox(8).Parent = LogoAccent
+    
+    -- Create logo text
+    local LogoText = Create("TextLabel")({
+        Name = "Text",
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1, 0, 1, 0),
+        Font = Enum.Font.GothamBold,
+        Text = "M",
+        TextColor3 = Theme.Text,
+        TextSize = 24,
+        ZIndex = 1001,
+        Parent = LogoFrame
+    })
+    
+    -- Create hitbox
+    local LogoButton = Create("TextButton")({
+        Name = "Button",
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1, 0, 1, 0),
+        Text = "",
+        ZIndex = 1002,
+        Parent = LogoFrame
+    })
+    
+    -- Make logo draggable
+    MakeDraggable(LogoFrame, LogoFrame)
+    
+    -- Logo click functionality
+    LogoButton.MouseButton1Click:Connect(function()
+        self.Toggled = not self.Toggled
+        
+        for _, window in pairs(self.Windows) do
+            window.Frame.Visible = self.Toggled
+        end
+        
+        -- Animate logo
+        if self.Toggled then
+            Tween(LogoFrame, {Rotation = 0}, 0.3)
+            Tween(LogoAccent, {BackgroundColor3 = Theme.LogoAccent}, 0.3)
+        else
+            Tween(LogoFrame, {Rotation = 45}, 0.3)
+            Tween(LogoAccent, {BackgroundColor3 = Theme.DarkText}, 0.3)
+        end
+    end)
+    
+    -- Logo hover effects
+    LogoButton.MouseEnter:Connect(function()
+        Tween(LogoFrame, {BackgroundColor3 = Color3.fromRGB(40, 40, 40)}, 0.2)
+    end)
+    
+    LogoButton.MouseLeave:Connect(function()
+        Tween(LogoFrame, {BackgroundColor3 = Theme.LogoBackground}, 0.2)
+    end)
+    
+    return LogoFrame
+end
+
 -- Main UI Creation
 function Mafuyo.new()
     local self = setmetatable({}, Mafuyo)
@@ -308,12 +387,15 @@ function Mafuyo.new()
         Parent = CoreGui
     })
     
+    -- Create logo
+    self.Logo = self:CreateLogo()
+    
     -- Create watermark
     self.Watermark = Create("Frame")({
         Name = "Watermark",
         BackgroundColor3 = Theme.Background,
         BackgroundTransparency = 0.2,
-        Position = UDim2.new(0, 20, 0, 20),
+        Position = UDim2.new(0, 80, 0, 20),
         Size = UDim2.new(0, 200, 0, 30),
         Parent = self.GUI
     })
@@ -351,6 +433,15 @@ function Mafuyo.new()
             
             for _, window in pairs(self.Windows) do
                 window.Frame.Visible = self.Toggled
+            end
+            
+            -- Animate logo
+            if self.Toggled then
+                Tween(self.Logo, {Rotation = 0}, 0.3)
+                Tween(self.Logo.Accent, {BackgroundColor3 = Theme.LogoAccent}, 0.3)
+            else
+                Tween(self.Logo, {Rotation = 45}, 0.3)
+                Tween(self.Logo.Accent, {BackgroundColor3 = Theme.DarkText}, 0.3)
             end
         end
     end)
@@ -406,8 +497,8 @@ function Mafuyo:CreateWindow(title)
     
     -- Make window draggable
     MakeDraggable(Window.TopBar, Window.Frame)
-    
-    -- Create title
+
+        -- Create title
     Window.Title = Create("TextLabel")({
         Name = "Title",
         BackgroundTransparency = 1,
@@ -437,6 +528,10 @@ function Mafuyo:CreateWindow(title)
     Window.CloseButton.MouseButton1Click:Connect(function()
         Window.Frame.Visible = false
         self.Toggled = false
+        
+        -- Animate logo
+        Tween(self.Logo, {Rotation = 45}, 0.3)
+        Tween(self.Logo.Accent, {BackgroundColor3 = Theme.DarkText}, 0.3)
     end)
     
     -- Create minimize button
@@ -504,8 +599,7 @@ function Mafuyo:CreateWindow(title)
         PaddingLeft = UDim.new(0, 5),
         Parent = Window.TabButtonHolder
     })
-
-        
+    
     -- Create tab content container
     Window.TabContentContainer = Create("Frame")({
         Name = "TabContentContainer",
@@ -676,6 +770,8 @@ function Mafuyo:CreateWindow(title)
                     
                     -- Click effect
                     Tween(Button.Frame, {BackgroundColor3 = Theme.Accent}, 0.1)
+                    task.wait(0.1)
+                    Tween(Button.Frame, {BackgroundColor3  0.1)
                     task.wait(0.1)
                     Tween(Button.Frame, {BackgroundColor3 = Theme.Button}, 0.1)
                 end)
@@ -863,7 +959,7 @@ function Mafuyo:CreateWindow(title)
                 
                 Slider.Hitbox.MouseMoved:Connect(function(_, y)
                     if isDragging then
-                        local percentage = math.clamp((Mouse.X - Slider.Background.AbsolutePosition.X) / Slider.Background.AbsoluteSize.X, 0, 1)
+                        local percentage = math.clamp((UserInputService:GetMouseLocation().X - Slider.Background.AbsolutePosition.X) / Slider.Background.AbsoluteSize.X, 0, 1)
                         local value = math.floor(min + (max - min) * percentage)
                         
                         Slider.Value = value
@@ -889,473 +985,7 @@ function Mafuyo:CreateWindow(title)
                 return Slider
             end
             
-            -- Dropdown creation function
-            function Section:CreateDropdown(text, options, default, callback)
-                options = options or {}
-                default = default or options[1] or ""
-                callback = callback or function() end
-                
-                local Dropdown = {}
-                Dropdown.Value = default
-                Dropdown.Options = options
-                Dropdown.Open = false
-                
-                -- Create dropdown frame
-                Dropdown.Frame = Create("Frame")({
-                    Name = text.."Dropdown",
-                    BackgroundTransparency = 1,
-                    Size = UDim2.new(1, 0, 0, 40),
-                    ClipsDescendants = true,
-                    Parent = Section.Content
-                })
-                
-                -- Create dropdown label
-                Dropdown.Label = Create("TextLabel")({
-                    Name = "Label",
-                    BackgroundTransparency = 1,
-                    Position = UDim2.new(0, 0, 0, 0),
-                    Size = UDim2.new(1, 0, 0, 20),
-                    Font = Enum.Font.Gotham,
-                    Text = text,
-                    TextColor3 = Theme.Text,
-                    TextSize = 14,
-                    TextXAlignment = Enum.TextXAlignment.Left,
-                    Parent = Dropdown.Frame
-                })
-                
-                -- Create dropdown button
-                Dropdown.Button = Create("TextButton")({
-                    Name = "Button",
-                    BackgroundColor3 = Theme.Dropdown,
-                    Position = UDim2.new(0, 0, 0, 20),
-                    Size = UDim2.new(1, 0, 0, 20),
-                    Font = Enum.Font.Gotham,
-                    Text = default,
-                    TextColor3 = Theme.Text,
-                    TextSize = 14,
-                    Parent = Dropdown.Frame
-                })
-                
-                RoundBox(4).Parent = Dropdown.Button
-                
-                -- Create dropdown arrow
-                Dropdown.Arrow = Create("TextLabel")({
-                    Name = "Arrow",
-                    BackgroundTransparency = 1,
-                    Position = UDim2.new(1, -20, 0, 0),
-                    Size = UDim2.new(0, 20, 0, 20),
-                    Font = Enum.Font.Gotham,
-                    Text = "▼",
-                    TextColor3 = Theme.Text,
-                    TextSize = 12,
-                    Parent = Dropdown.Button
-                })
-                
-                -- Create dropdown container
-                Dropdown.Container = Create("Frame")({
-                    Name = "Container",
-                    BackgroundColor3 = Theme.Dropdown,
-                    Position = UDim2.new(0, 0, 0, 42),
-                    Size = UDim2.new(1, 0, 0, 0),
-                    Visible = false,
-                    Parent = Dropdown.Frame
-                })
-                
-                RoundBox(4).Parent = Dropdown.Container
-                
-                -- Create option holder
-                Dropdown.OptionHolder = Create("ScrollingFrame")({
-                    Name = "OptionHolder",
-                    Active = true,
-                    BackgroundTransparency = 1,
-                    BorderSizePixel = 0,
-                    Position = UDim2.new(0, 0, 0, 0),
-                    Size = UDim2.new(1, 0, 1, 0),
-                    CanvasSize = UDim2.new(0, 0, 0, 0),
-                    ScrollBarThickness = 3,
-                    ScrollBarImageColor3 = Theme.Accent,
-                    Parent = Dropdown.Container
-                })
-                
-                local OptionList = Create("UIListLayout")({
-                    SortOrder = Enum.SortOrder.LayoutOrder,
-                    Parent = Dropdown.OptionHolder
-                })
-                
-                -- Update canvas size when options are added
-                OptionList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-                    Dropdown.OptionHolder.CanvasSize = UDim2.new(0, 0, 0, OptionList.AbsoluteContentSize.Y)
-                end)
-                
-                -- Dropdown functionality
-                local function CreateOption(option)
-                    local Option = Create("TextButton")({
-                        Name = option.."Option",
-                        BackgroundTransparency = 1,
-                        Size = UDim2.new(1, 0, 0, 20),
-                        Font = Enum.Font.Gotham,
-                        Text = option,
-                        TextColor3 = Theme.Text,
-                        TextSize = 14,
-                        Parent = Dropdown.OptionHolder
-                    })
-
-                    Option.MouseEnter:Connect(function()
-                        Tween(Option, {BackgroundTransparency = 0.8})
-                    end)
-                    
-                    Option.MouseLeave:Connect(function()
-                        Tween(Option, {BackgroundTransparency = 1})
-                    end)
-                    
-                    Option.MouseButton1Click:Connect(function()
-                        Dropdown.Value = option
-                        Dropdown.Button.Text = option
-                        
-                        Dropdown:Toggle()
-                        callback(option)
-                    end)
-                    
-                    return Option
-                end
-                
-                -- Add options
-                for _, option in ipairs(options) do
-                    CreateOption(option)
-                end
-                
-                -- Toggle dropdown
-                function Dropdown:Toggle()
-                    Dropdown.Open = not Dropdown.Open
-                    
-                    if Dropdown.Open then
-                        Dropdown.Frame.Size = UDim2.new(1, 0, 0, 40 + math.min(#Dropdown.Options * 20, 100))
-                        Dropdown.Container.Visible = true
-                        Dropdown.Container.Size = UDim2.new(1, 0, 0, math.min(#Dropdown.Options * 20, 100))
-                        Dropdown.OptionHolder.Size = UDim2.new(1, 0, 1, 0)
-                        Dropdown.Arrow.Text = "▲"
-                    else
-                        Dropdown.Frame.Size = UDim2.new(1, 0, 0, 40)
-                        Dropdown.Arrow.Text = "▼"
-                        Dropdown.Container.Visible = false
-                    end
-                end
-                
-                Dropdown.Button.MouseButton1Click:Connect(function()
-                    Dropdown:Toggle()
-                end)
-                
-                -- Dropdown methods
-                function Dropdown:SetValue(value)
-                    if table.find(Dropdown.Options, value) then
-                        Dropdown.Value = value
-                        Dropdown.Button.Text = value
-                        callback(value)
-                    end
-                end
-                
-                function Dropdown:AddOption(option)
-                    if not table.find(Dropdown.Options, option) then
-                        table.insert(Dropdown.Options, option)
-                        CreateOption(option)
-                    end
-                end
-                
-                function Dropdown:RemoveOption(option)
-                    local index = table.find(Dropdown.Options, option)
-                    if index then
-                        table.remove(Dropdown.Options, index)
-                        
-                        for _, child in pairs(Dropdown.OptionHolder:GetChildren()) do
-                            if child:IsA("TextButton") and child.Text == option then
-                                child:Destroy()
-                                break
-                            end
-                        end
-                        
-                        if Dropdown.Value == option then
-                            Dropdown.Value = Dropdown.Options[1] or ""
-                            Dropdown.Button.Text = Dropdown.Value
-                            callback(Dropdown.Value)
-                        end
-                    end
-                end
-                
-                return Dropdown
-            end
-            
-            -- Textbox creation function
-            function Section:CreateTextbox(text, placeholder, default, callback)
-                placeholder = placeholder or ""
-                default = default or ""
-                callback = callback or function() end
-                
-                local Textbox = {}
-                Textbox.Value = default
-                
-                -- Create textbox frame
-                Textbox.Frame = Create("Frame")({
-                    Name = text.."Textbox",
-                    BackgroundTransparency = 1,
-                    Size = UDim2.new(1, 0, 0, 50),
-                    Parent = Section.Content
-                })
-                
-                -- Create textbox label
-                Textbox.Label = Create("TextLabel")({
-                    Name = "Label",
-                    BackgroundTransparency = 1,
-                    Position = UDim2.new(0, 0, 0, 0),
-                    Size = UDim2.new(1, 0, 0, 20),
-                    Font = Enum.Font.Gotham,
-                    Text = text,
-                    TextColor3 = Theme.Text,
-                    TextSize = 14,
-                    TextXAlignment = Enum.TextXAlignment.Left,
-                    Parent = Textbox.Frame
-                })
-                
-                -- Create textbox
-                Textbox.Box = Create("TextBox")({
-                    Name = "Box",
-                    BackgroundColor3 = Theme.Dropdown,
-                    Position = UDim2.new(0, 0, 0, 20),
-                    Size = UDim2.new(1, 0, 0, 30),
-                    Font = Enum.Font.Gotham,
-                    PlaceholderText = placeholder,
-                    Text = default,
-                    TextColor3 = Theme.Text,
-                    TextSize = 14,
-                    ClearTextOnFocus = false,
-                    Parent = Textbox.Frame
-                })
-                
-                RoundBox(4).Parent = Textbox.Box
-                
-                -- Textbox functionality
-                Textbox.Box.Focused:Connect(function()
-                    Tween(Textbox.Box, {BackgroundColor3 = Theme.Accent})
-                end)
-                
-                Textbox.Box.FocusLost:Connect(function(enterPressed)
-                    Tween(Textbox.Box, {BackgroundColor3 = Theme.Dropdown})
-                    
-                    if enterPressed then
-                        Textbox.Value = Textbox.Box.Text
-                        callback(Textbox.Box.Text)
-                    end
-                end)
-                
-                -- Textbox methods
-                function Textbox:SetValue(value)
-                    Textbox.Value = value
-                    Textbox.Box.Text = value
-                    callback(value)
-                end
-                
-                return Textbox
-            end
-            
-            -- Keybind creation function
-            function Section:CreateKeybind(text, default, callback)
-                default = default or Enum.KeyCode.Unknown
-                callback = callback or function() end
-                
-                local Keybind = {}
-                Keybind.Value = default
-                Keybind.Listening = false
-                
-                -- Create keybind frame
-                Keybind.Frame = Create("Frame")({
-                    Name = text.."Keybind",
-                    BackgroundTransparency = 1,
-                    Size = UDim2.new(1, 0, 0, 30),
-                    Parent = Section.Content
-                })
-                
-                -- Create keybind label
-                Keybind.Label = Create("TextLabel")({
-                    Name = "Label",
-                    BackgroundTransparency = 1,
-                    Position = UDim2.new(0, 0, 0, 0),
-                    Size = UDim2.new(1, -80, 1, 0),
-                    Font = Enum.Font.Gotham,
-                    Text = text,
-                    TextColor3 = Theme.Text,
-                    TextSize = 14,
-                    TextXAlignment = Enum.TextXAlignment.Left,
-                    Parent = Keybind.Frame
-                })
-                
-                -- Create keybind button
-                Keybind.Button = Create("TextButton")({
-                    Name = "Button",
-                    BackgroundColor3 = Theme.Button,
-                    Position = UDim2.new(1, -70, 0.5, -10),
-                    Size = UDim2.new(0, 70, 0, 20),
-                    Font = Enum.Font.Gotham,
-                    Text = default.Name,
-                    TextColor3 = Theme.Text,
-                    TextSize = 12,
-                    Parent = Keybind.Frame
-                })
-                
-                RoundBox(4).Parent = Keybind.Button
-                
-                -- Keybind functionality
-                Keybind.Button.MouseButton1Click:Connect(function()
-                    Keybind.Listening = true
-                    Keybind.Button.Text = "..."
-                end)
-                
-                UserInputService.InputBegan:Connect(function(input)
-                    if Keybind.Listening and input.UserInputType == Enum.UserInputType.Keyboard then
-                        Keybind.Value = input.KeyCode
-                        Keybind.Button.Text = input.KeyCode.Name
-                        Keybind.Listening = false
-                    end
-                end)
-                
-                -- Register keybind
-                self.Keybinds[default] = callback
-                
-                -- Keybind methods
-                function Keybind:SetValue(value)
-                    -- Remove old keybind
-                    self.Keybinds[Keybind.Value] = nil
-                    
-                    -- Set new keybind
-                    Keybind.Value = value
-                    Keybind.Button.Text = value.Name
-                    self.Keybinds[value] = callback
-                end
-                
-                return Keybind
-            end
-            
-            -- Label creation function
-            function Section:CreateLabel(text)
-                local Label = {}
-                
-                -- Create label
-                Label.Frame = Create("TextLabel")({
-                    Name = "Label",
-                    BackgroundTransparency = 1,
-                    Size = UDim2.new(1, 0, 0, 20),
-                    Font = Enum.Font.Gotham,
-                    Text = text,
-                    TextColor3 = Theme.Text,
-                    TextSize = 14,
-                    TextXAlignment = Enum.TextXAlignment.Left,
-                    Parent = Section.Content
-                })
-                
-                -- Label methods
-                function Label:SetText(value)
-                    Label.Frame.Text = value
-                end
-                
-                return Label
-            end
-            
-            -- Separator creation function
-            function Section:CreateSeparator()
-                local Separator = {}
-                
-                -- Create separator
-                Separator.Frame = Create("Frame")({
-                    Name = "Separator",
-                    BackgroundColor3 = Theme.Button,
-                    Size = UDim2.new(1, 0, 0, 1),
-                    Parent = Section.Content
-                })
-                
-                return Separator
-            end
-            
-            -- ColorPicker creation function
-            function Section:CreateColorPicker(text, default, callback)
-                default = default or Color3.fromRGB(255, 255, 255)
-                callback = callback or function() end
-                
-                local ColorPicker = {}
-                ColorPicker.Value = default
-                ColorPicker.Open = false
-                
-                -- Create color picker frame
-                ColorPicker.Frame = Create("Frame")({
-                    Name = text.."ColorPicker",
-                    BackgroundTransparency = 1,
-                    Size = UDim2.new(1, 0, 0, 30),
-                    Parent = Section.Content
-                })
-                
-                -- Create color picker label
-                ColorPicker.Label = Create("TextLabel")({
-                    Name = "Label",
-                    BackgroundTransparency = 1,
-                    Position = UDim2.new(0, 0, 0, 0),
-                    Size = UDim2.new(1, -40, 1, 0),
-                    Font = Enum.Font.Gotham,
-                    Text = text,
-                    TextColor3 = Theme.Text,
-                    TextSize = 14,
-                    TextXAlignment = Enum.TextXAlignment.Left,
-                    Parent = ColorPicker.Frame
-                })
-                
-                -- Create color display
-                ColorPicker.Display = Create("Frame")({
-                    Name = "Display",
-                    BackgroundColor3 = default,
-                    Position = UDim2.new(1, -30, 0.5, -10),
-                    Size = UDim2.new(0, 30, 0, 20),
-                    Parent = ColorPicker.Frame
-                })
-                
-                RoundBox(4).Parent = ColorPicker.Display
-                
-                -- Create color picker button
-                ColorPicker.Button = Create("TextButton")({
-                    Name = "Button",
-                    BackgroundTransparency = 1,
-                    Size = UDim2.new(1, 0, 1, 0),
-                    Text = "",
-                    Parent = ColorPicker.Display
-                })
-                
-                -- Create color picker container
-                ColorPicker.Container = Create("Frame")({
-                    Name = "Container",
-                    BackgroundColor3 = Theme.Section,
-                    Position = UDim2.new(1, 10, 0, 0),
-                    Size = UDim2.new(0, 200, 0, 200),
-                    Visible = false,
-                    ZIndex = 10,
-                    Parent = ColorPicker.Frame
-                })
-                
-                RoundBox(6).Parent = ColorPicker.Container
-                Shadow(ColorPicker.Container)
-                
-                -- Create color picker functionality
-                -- This is a simplified version, you would need to implement a full HSV color picker
-                
-                -- Toggle color picker
-                ColorPicker.Button.MouseButton1Click:Connect(function()
-                    ColorPicker.Open = not ColorPicker.Open
-                    ColorPicker.Container.Visible = ColorPicker.Open
-                end)
-                
-                -- ColorPicker methods
-                function ColorPicker:SetValue(value)
-                    ColorPicker.Value = value
-                    ColorPicker.Display.BackgroundColor3 = value
-                    callback(value)
-                end
-                
-                return ColorPicker
-            end
+            -- Add other UI element creation functions here...
             
             return Section
         end
